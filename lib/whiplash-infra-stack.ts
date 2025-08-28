@@ -63,14 +63,14 @@ export class WhiplashInfraStack extends cdk.Stack {
     const backendImageStr = cdk.Token.asString(
       cdk.Fn.conditionIf(
         backendEnabled.logicalId,
-        `${account}.dkr.ecr.${region}.amazonaws.com/${projectName}-backend:${backendTag.valueAsString}`,
+        `${account}.dkr.ecr.${region}.amazonaws.com/${projectName}-${stage}-backend:${backendTag.valueAsString}`,
         'public.ecr.aws/nginx/nginx:alpine'
       )
     );
     const frontendImageStr = cdk.Token.asString(
       cdk.Fn.conditionIf(
         frontendEnabled.logicalId,
-        `${account}.dkr.ecr.${region}.amazonaws.com/${projectName}-frontend:${frontendTag.valueAsString}`,
+        `${account}.dkr.ecr.${region}.amazonaws.com/${projectName}-${stage}-frontend:${frontendTag.valueAsString}`,
         'public.ecr.aws/nginx/nginx:alpine'
       )
     );
