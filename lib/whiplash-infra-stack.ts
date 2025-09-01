@@ -5,6 +5,7 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
 
 interface WhiplashInfraStackProps extends cdk.StackProps {
   stage: string;
@@ -150,8 +151,53 @@ export class WhiplashInfraStack extends cdk.Stack {
     const frontendRepo = ecr.Repository.fromRepositoryName(this, 'FrontendRepoImport', `${projectName}-frontend`);
     frontendRepo.grantPull(frontend.taskDefinition.executionRole!);
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // WAFv2 Web ACL (shared by both ALBs) — minimal & safe
+    const wafAcl = new wafv2.CfnWebACL(this, name('WafAcl'), {
+      name: name('web-acl'),              // explicit name helps troubleshooting
+      scope: 'REGIONAL',
+      defaultAction: { allow: {} },
+      visibilityConfig: {
+        cloudWatchMetricsEnabled: true,
+        sampledRequestsEnabled: true,
+        metricName: `${projectName}_${stage}_wafMetric`, // avoid spaces/specials
+      },
+      rules: [
+        {
+          name: 'AWSCommonRuleSet',
+          priority: 0,
+          overrideAction: { none: {} },
+          statement: {
+            managedRuleGroupStatement: {
+              vendorName: 'AWS',
+              name: 'AWSManagedRulesCommonRuleSet',
+            },
+          },
+          visibilityConfig: {
+            cloudWatchMetricsEnabled: true,
+            sampledRequestsEnabled: true,
+            metricName: 'AWSCommonRuleSet',
+          },
+        },
+      ],
+    });
+
+    // Associate WAF with both ALBs
+    const backendWafAssoc = new wafv2.CfnWebACLAssociation(this, name('BackendWafAssoc'), {
+      resourceArn: backend.loadBalancer.loadBalancerArn,
+      webAclArn: wafAcl.attrArn,
+    });
+    backendWafAssoc.addDependency(wafAcl);
+
+    const frontendWafAssoc = new wafv2.CfnWebACLAssociation(this, name('FrontendWafAssoc'), {
+      resourceArn: frontend.loadBalancer.loadBalancerArn,
+      webAclArn: wafAcl.attrArn,
+    });
+    frontendWafAssoc.addDependency(wafAcl);
+
     // Outputs
     new cdk.CfnOutput(this, name('BackendURL'),  { value: backend.loadBalancer.loadBalancerDnsName });
     new cdk.CfnOutput(this, name('FrontendURL'), { value: frontend.loadBalancer.loadBalancerDnsName });
+    new cdk.CfnOutput(this, name('WafWebAclArn'), { value: wafAcl.attrArn });
   }
 }
