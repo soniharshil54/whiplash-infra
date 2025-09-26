@@ -7,6 +7,7 @@ import { createVpc } from './resources/network/vpc';
 import { createEcsCluster } from './resources/compute/cluster';
 import { createAlbFargateService } from './resources/services/alb-fargate';
 import { createRegionalWebAcl, associateWebAcl } from './resources/security/waf';
+import { createAtlasVpcEndpoint } from './resources/network/atlas-endpoint';
 
 interface WhiplashInfraStackProps extends cdk.StackProps {
   stage: string;
@@ -116,6 +117,19 @@ export class WhiplashInfraStack extends cdk.Stack {
 
     associateWebAcl(this, name('BackendWafAssoc'), wafAcl, backend.loadBalancer);
     associateWebAcl(this, name('FrontendWafAssoc'), wafAcl, frontend.loadBalancer);
+
+    // Atlas Private Endpoint
+    const atlasServiceNameParam = new cdk.CfnParameter(this, 'AtlasServiceName', {
+      type: 'String',
+      description: 'Atlas PrivateLink service name from Atlas console',
+    });
+
+    createAtlasVpcEndpoint(this, {
+      vpc,
+      projectName,
+      stage,
+      atlasServiceName: atlasServiceNameParam.valueAsString,
+    });
 
     // Outputs
     new cdk.CfnOutput(this, name('BackendURL'),  { value: backend.loadBalancer.loadBalancerDnsName });
