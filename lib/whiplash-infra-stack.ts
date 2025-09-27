@@ -5,11 +5,11 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { nameFn } from './common/naming';
 import { createVpc } from './resources/network/vpc';
 import { createEcsCluster } from './resources/compute/cluster';
-// import { createAlbFargateService } from './resources/services/alb-fargate';
 import { createRegionalWebAcl, associateWebAcl } from './resources/security/waf';
-import { createAtlasVpcEndpoint } from './resources/network/atlas-endpoint';
+// import { createAtlasVpcEndpoint } from './resources/network/atlas-endpoint';
 import { createEcrRepository } from './resources/storage/ecrRepository';
 import { createSsmStringParams } from './resources/storage/ssmParameter'; 
+import { createS3Bucket } from './resources/storage/s3bucket';
 
 interface WhiplashInfraStackProps extends cdk.StackProps {
   stage: string;
@@ -54,18 +54,10 @@ export class WhiplashInfraStack extends cdk.Stack {
       repoName: `${projectName}-${stage}-frontend`,
     });
 
-    // get atlas service name from SSM param based on project and stack
-    // const atlasServiceNameParam = cdk.aws_ssm.StringParameter.fromStringParameterName(
-    //   this,
-    //   'AtlasServiceNameParam',
-    //   `/whiplash/atlas/service-name/${projectName}/${stage}`
-    // );
-    // createAtlasVpcEndpoint(this, {
-    //   vpc,
-    //   projectName,
-    //   stage,
-    //   atlasServiceName: atlasServiceNameParam.stringValue,
-    // });
+    // s3 bucket for file storage
+    const s3Bucket = createS3Bucket(this, name('AppBucket'), {
+      bucketName: `${projectName}-${stage}-bucket`,
+    });
 
     // ─────────────────────────────────────────────────────────────────────────────
     // SSM parameters needed by app stacks
@@ -85,6 +77,7 @@ export class WhiplashInfraStack extends cdk.Stack {
         ecrFrontendRepoUri: frontendRepo.repositoryUri,
         accountId: account,
         region: region,
+        s3BucketName: s3Bucket.bucketName,
         // atlasServiceName is written by Pulumi; app stacks can read it directly if needed
       },
     });
@@ -99,5 +92,6 @@ export class WhiplashInfraStack extends cdk.Stack {
     new cdk.CfnOutput(this, name('BackendEcrRepoUri'),  { value: backendRepo.repositoryUri });
     new cdk.CfnOutput(this, name('FrontendEcrRepoUri'), { value: frontendRepo.repositoryUri });
     new cdk.CfnOutput(this, name('WafWebAclArn'),       { value: wafAcl.attrArn });
+    new cdk.CfnOutput(this, name('S3BucketName'),       { value: s3Bucket.bucketName });
   }
 }
