@@ -1,0 +1,79 @@
+image: docker:24.0.6-cli
+options:
+  docker: true
+
+definitions:
+  steps:
+    - step: &init
+        image: alpine:3.20
+        name: Init (capture deployment env)
+        script:
+          - apk add --no-cache bash coreutils
+          - set -euo pipefail
+          # branch → deploy env
+          - |
+            if [ "$BITBUCKET_BRANCH" = "main" ]; then
+              DEPLOY_ENV="prod"
+            elif [ "$BITBUCKET_BRANCH" = "staging" ]; then
+              DEPLOY_ENV="staging"
+            else
+              echo "❌ Unsupported branch $BITBUCKET_BRANCH"; exit 1
+            fi
+            echo "$DEPLOY_ENV" > .deploy_env
+          - echo "DEPLOY_ENV=$(cat .deploy_env)" >> .ci_env
+        artifacts:
+          - .deploy_env
+          - .ci_env
+
+    - step: &deploy
+        image: node:20-alpine
+        name: Deploy (CDK)
+        trigger: manual       # 👈 makes this step manual
+        script:
+          - apk add --no-cache aws-cli bash jq
+          - set -euo pipefail
+
+          - set +u; set -a; source .ci_env; set +a; set -u
+          - VERSION=$(cat VERSION)
+          - DEPLOY_ENV=$(cat .deploy_env)
+
+          - '[ -n "${AWS_REGION:-}" ] || { echo "AWS_REGION is required"; exit 1; }'
+          - '[ -n "${PROJECT:-}" ]    || { echo "PROJECT is required"; exit 1; }'
+
+          - STACK_NAME="${PROJECT}-${DEPLOY_ENV}"
+          - echo "🛠 Deploying to stack ${STACK_NAME} (env ${DEPLOY_ENV}) with version ${VERSION}"
+
+          - npm ci
+          - npx cdk deploy --require-approval never -c stage="${DEPLOY_ENV}" -c version="${VERSION}"
+
+    - step: &destroy
+        image: node:20-alpine
+        name: Destroy (CDK)
+        trigger: manual       # 👈 makes this step manual
+        script:
+          - apk add --no-cache aws-cli bash jq
+          - set -euo pipefail
+
+          - set +u; set -a; source .ci_env; set +a; set -u
+          - VERSION=$(cat VERSION)
+          - DEPLOY_ENV=$(cat .deploy_env)
+
+          - '[ -n "${AWS_REGION:-}" ] || { echo "AWS_REGION is required"; exit 1; }'
+          - '[ -n "${PROJECT:-}" ]    || { echo "PROJECT is required"; exit 1; }'
+
+          - STACK_NAME="${PROJECT}-${DEPLOY_ENV}"
+          - echo "🔥 Destroying stack ${STACK_NAME} (env ${DEPLOY_ENV})"
+
+          - npm ci
+          - npx cdk destroy --force -c stage="${DEPLOY_ENV}" -c version="${VERSION}"
+
+pipelines:
+  branches:
+    main:
+      - step: *init
+      - step: *deploy
+      - step: *destroy
+    staging:
+      - step: *init
+      - step: *deploy
+      - step: *destroy
