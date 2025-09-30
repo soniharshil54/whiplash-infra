@@ -71,9 +71,11 @@ pipelines:
   branches:
     main:
       - step: *init
-      - step: *deploy
-      - step: *destroy
+      - parallel:         # 👈 allows multiple steps to branch out independently
+          - step: *deploy
+          - step: *destroy
     staging:
       - step: *init
-      - step: *deploy
-      - step: *destroy
+      - parallel:
+          - step: *deploy
+          - step: *destroy
