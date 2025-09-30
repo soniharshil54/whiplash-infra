@@ -8,7 +8,7 @@ const app = new cdk.App();
 const deployEnv = app.node.tryGetContext('stage') as 'dev' | 'staging' | 'prod';
 console.log('deployEnv from getContext stage', deployEnv);
 console.log('process.env.PROJECT', process.env.PROJECT);
-console.log('process.env.VERSION', process.env.VERSION); 
+// console.log('process.env.VERSION', process.env.VERSION); 
 
 if (!['dev', 'staging', 'prod'].includes(deployEnv)) {
   throw new Error('DEPLOY_ENV must be one of: dev, staging, prod');
