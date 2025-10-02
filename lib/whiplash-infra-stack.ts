@@ -10,6 +10,7 @@ import { createRegionalWebAcl, associateWebAcl } from './resources/security/waf'
 import { createEcrRepository } from './resources/storage/ecrRepository';
 import { createSsmStringParams } from './resources/storage/ssmParameter'; 
 import { createS3Bucket } from './resources/storage/s3bucket';
+import { createPrivateNamespace } from './resources/network/cloudMap';
 
 interface WhiplashInfraStackProps extends cdk.StackProps {
   stage: string;
@@ -37,6 +38,14 @@ export class WhiplashInfraStack extends cdk.Stack {
     // ─────────────────────────────────────────────────────────────────────────────
     // Network & Cluster
     const vpc     = createVpc(this, name('Vpc'), { maxAzs: 2 });
+
+    // Cloud Map Private DNS namespace (one per VPC/env)
+    const namespaceFqdn = `${projectName}-${stage}.local`;
+    const ns = createPrivateNamespace(this, name('cloudmap-ns'), {
+      vpc,
+      name: namespaceFqdn,
+    });
+
     const cluster = createEcsCluster(this, name('Cluster'), vpc, name('Cluster'));
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -78,6 +87,9 @@ export class WhiplashInfraStack extends cdk.Stack {
         accountId: account,
         region: region,
         s3BucketName: s3Bucket.bucketName,
+        cloudMapNamespaceId: ns.namespaceId,
+        cloudMapNamespaceName: namespaceFqdn,
+        cloudMapNamespaceArn: ns.namespaceArn,
         // atlasServiceName is written by Pulumi; app stacks can read it directly if needed
       },
     });
@@ -93,5 +105,7 @@ export class WhiplashInfraStack extends cdk.Stack {
     new cdk.CfnOutput(this, name('FrontendEcrRepoUri'), { value: frontendRepo.repositoryUri });
     new cdk.CfnOutput(this, name('WafWebAclArn'),       { value: wafAcl.attrArn });
     new cdk.CfnOutput(this, name('S3BucketName'),       { value: s3Bucket.bucketName });
+    new cdk.CfnOutput(this, name('CloudMapNamespaceId'),   { value: ns.namespaceId });
+    new cdk.CfnOutput(this, name('CloudMapNamespaceName'), { value: namespaceFqdn });
   }
 }
