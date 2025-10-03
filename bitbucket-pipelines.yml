@@ -16,6 +16,8 @@ definitions:
               DEPLOY_ENV="prod"
             elif [ "$BITBUCKET_BRANCH" = "staging" ]; then
               DEPLOY_ENV="staging"
+            elif [ "$BITBUCKET_BRANCH" = "dev" ]; then
+              DEPLOY_ENV="dev"
             else
               echo "❌ Unsupported branch $BITBUCKET_BRANCH"; exit 1
             fi
@@ -75,6 +77,11 @@ pipelines:
           - step: *deploy
           - step: *destroy
     staging:
+      - step: *init
+      - parallel:
+          - step: *deploy
+          - step: *destroy
+    dev:
       - step: *init
       - parallel:
           - step: *deploy
