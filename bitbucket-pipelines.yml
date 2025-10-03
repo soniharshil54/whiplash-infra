@@ -22,6 +22,7 @@ definitions:
               echo "❌ Unsupported branch $BITBUCKET_BRANCH"; exit 1
             fi
             echo "$DEPLOY_ENV" > .deploy_env
+          - echo "Captured DEPLOY_ENV=$DEPLOY_ENV from branch $BITBUCKET_BRANCH"
           - echo "DEPLOY_ENV=$(cat .deploy_env)" >> .ci_env
         artifacts:
           - .deploy_env
@@ -72,17 +73,23 @@ definitions:
 pipelines:
   branches:
     main:
-      - step: *init
+      - step:
+          <<: *init
+          deployment: prod 
       - parallel:         # 👈 allows multiple steps to branch out independently
           - step: *deploy
           - step: *destroy
     staging:
-      - step: *init
+      - step:
+          <<: *init
+          deployment: staging 
       - parallel:
           - step: *deploy
           - step: *destroy
     dev:
-      - step: *init
+      - step:
+          <<: *init
+          deployment: dev 
       - parallel:
           - step: *deploy
           - step: *destroy
