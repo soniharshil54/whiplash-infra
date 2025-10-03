@@ -23,6 +23,9 @@ definitions:
             fi
             echo "$DEPLOY_ENV" > .deploy_env
           - echo "Captured DEPLOY_ENV=$DEPLOY_ENV from branch $BITBUCKET_BRANCH"
+          - >
+            env | grep -vE '^(BITBUCKET_|PIPES_|CI=|SHELL=|PWD=|HOME=|PATH=|SHLVL=|_=|HOSTNAME=|DOCKER_HOST=)'
+            > .ci_env
           - echo "DEPLOY_ENV=$(cat .deploy_env)" >> .ci_env
         artifacts:
           - .deploy_env
