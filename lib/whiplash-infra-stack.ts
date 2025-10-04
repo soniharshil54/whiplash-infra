@@ -11,6 +11,7 @@ import { createEcrRepository } from './resources/storage/ecrRepository';
 import { createSsmStringParams } from './resources/storage/ssmParameter'; 
 import { createS3Bucket } from './resources/storage/s3bucket';
 import { createPrivateNamespace } from './resources/network/cloudMap';
+import { createDistributionWithParams } from './resources/network/cloudfront';
 
 interface WhiplashInfraStackProps extends cdk.StackProps {
   stage: string;
@@ -72,6 +73,12 @@ export class WhiplashInfraStack extends cdk.Stack {
     // SSM parameters needed by app stacks
     const privateSel = vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS });
 
+    const { dist, backendAlbDns, frontendAlbDns } = createDistributionWithParams(
+      this,
+      name('CfDist'),
+      { comment: `${projectName}-${stage} CloudFront (params)` }
+    );
+
     createSsmStringParams(this, name('SsmInfraExports'), {
       projectName,
       stage,
@@ -90,6 +97,8 @@ export class WhiplashInfraStack extends cdk.Stack {
         cloudMapNamespaceId: ns.namespaceId,
         cloudMapNamespaceName: namespaceFqdn,
         cloudMapNamespaceArn: ns.namespaceArn,
+        cloudFrontDistributionId: dist.distributionId,
+        cloudFrontDomainName: dist.distributionDomainName,
         // atlasServiceName is written by Pulumi; app stacks can read it directly if needed
       },
     });
@@ -107,5 +116,9 @@ export class WhiplashInfraStack extends cdk.Stack {
     new cdk.CfnOutput(this, name('S3BucketName'),       { value: s3Bucket.bucketName });
     new cdk.CfnOutput(this, name('CloudMapNamespaceId'),   { value: ns.namespaceId });
     new cdk.CfnOutput(this, name('CloudMapNamespaceName'), { value: namespaceFqdn });
+    new cdk.CfnOutput(this, name('CloudFrontDistributionId'), { value: dist.distributionId });
+    new cdk.CfnOutput(this, name('CloudFrontDomainName'),     { value: dist.distributionDomainName });
+    new cdk.CfnOutput(this, name('BackendAlbDnsParamName'),   { value: backendAlbDns.logicalId });
+    new cdk.CfnOutput(this, name('FrontendAlbDnsParamName'),  { value: frontendAlbDns.logicalId });
   }
 }
