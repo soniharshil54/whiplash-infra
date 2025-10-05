@@ -10,19 +10,19 @@ export interface CfWithParamsProps {
 
 export function createDistributionWithParams(scope: Construct, id: string, props: CfWithParamsProps) {
   // ── Stable CFN parameters (ALB DNS) ───────────────────────────────────────────
-  const backendAlbDns = new cdk.CfnParameter(scope, 'BackendAlbDns', {
+  const backendAlbDns = new cdk.CfnParameter(scope, 'backendAlbDns', {
     type: 'String',
     default: 'notready.invalid',
     description: 'Backend ALB DNS name for /api* origin (e.g. abc.elb.amazonaws.com)',
   });
-  backendAlbDns.overrideLogicalId('BackendAlbDns');
+  backendAlbDns.overrideLogicalId('backendAlbDns');
 
-  const frontendAlbDns = new cdk.CfnParameter(scope, 'FrontendAlbDns', {
+  const frontendAlbDns = new cdk.CfnParameter(scope, 'frontendAlbDns', {
     type: 'String',
     default: 'notready.invalid',
     description: 'Frontend ALB DNS name for default origin (e.g. xyz.elb.amazonaws.com)',
   });
-  frontendAlbDns.overrideLogicalId('FrontendAlbDns');
+  frontendAlbDns.overrideLogicalId('frontendAlbDns');
 
   // ── New: stable CFN parameters for aliases + ACM cert ─────────────────────────
   const enableCustom = new cdk.CfnParameter(scope, 'EnableCustomDomains', {

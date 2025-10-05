@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# load env variables from .env file if it exists
-if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
+# error if .cdk_env file is missing
+if [ ! -f .cdk_env ]; then
+  echo "Error: .cdk_env file not found!"
+  exit 1
 fi
+
+# load env variables from .cdk_env file
+export $(grep -v '^#' .cdk_env | xargs)
 
 echo "Using environment variables:"
 echo "  AWS_REGION: ${AWS_REGION}"
