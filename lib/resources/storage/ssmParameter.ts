@@ -33,3 +33,22 @@ export function createSsmStringParams(
     })
   );
 }
+
+/**
+ * Create ssm parameters with app types (backend, frontend))
+ */
+export function createSsmStringParamsV2(
+  scope: Construct,
+  baseId: string,
+  args: { projectName: string; stage: string; entries: Array<{ key: string; value: string; appType?: "frontend" | "backend" }> }
+): ssm.StringParameter[] {
+  const { projectName, stage, entries } = args;
+  return entries.map(({ key, value, appType }) => {
+    const idSuffix = appType ? `${baseId}-${appType}-${key}` : `${baseId}-${key}`;
+    const path = appType ? `/${projectName}/${stage}/${appType}/${key}` : `/${projectName}/${stage}/${key}`;
+    return new ssm.StringParameter(scope, idSuffix, {
+      parameterName: path,
+      stringValue: value,
+    });
+  });
+}
