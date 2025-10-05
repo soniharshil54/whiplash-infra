@@ -26,6 +26,9 @@ cdk context --clear
 cdk deploy \
   --require-approval never \
   --context stage="${DEPLOY_ENV}" \
-  --context version="${VERSION}"
+  --context version="${VERSION}" \
+  --parameters EnableCustomDomains=${ENABLE_CUSTOM_DOMAINS} \
+  --parameters CustomDomainsCsv=${CUSTOM_DOMAINS_CSV} \
+  --parameters AcmCertificateArnUsEast1=${ACM_CERT_ARN}
 
 echo "✅ Infra ${VERSION} deployed successfully"

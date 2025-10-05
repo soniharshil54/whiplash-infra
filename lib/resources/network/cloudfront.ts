@@ -9,22 +9,45 @@ export interface CfWithParamsProps {
 }
 
 export function createDistributionWithParams(scope: Construct, id: string, props: CfWithParamsProps) {
-  // CloudFormation parameters (owned by this core stack)
-  const backendAlbDns = new cdk.CfnParameter(scope, `BackendAlbDns`, {
+  // ── Stable CFN parameters (ALB DNS) ───────────────────────────────────────────
+  const backendAlbDns = new cdk.CfnParameter(scope, 'BackendAlbDns', {
     type: 'String',
-    default: 'notready.invalid',           // harmless default; update later via --parameters
+    default: 'notready.invalid',
     description: 'Backend ALB DNS name for /api* origin (e.g. abc.elb.amazonaws.com)',
   });
   backendAlbDns.overrideLogicalId('BackendAlbDns');
 
-  const frontendAlbDns = new cdk.CfnParameter(scope, `FrontendAlbDns`, {
+  const frontendAlbDns = new cdk.CfnParameter(scope, 'FrontendAlbDns', {
     type: 'String',
-    default: 'notready.invalid',           // harmless default; update later via --parameters
+    default: 'notready.invalid',
     description: 'Frontend ALB DNS name for default origin (e.g. xyz.elb.amazonaws.com)',
   });
   frontendAlbDns.overrideLogicalId('FrontendAlbDns');
 
-  // Origins (tokens from parameters are fine)
+  // ── New: stable CFN parameters for aliases + ACM cert ─────────────────────────
+  const enableCustom = new cdk.CfnParameter(scope, 'EnableCustomDomains', {
+    type: 'String',
+    allowedValues: ['true', 'false'],
+    default: 'false',
+    description: 'Set to true to attach custom domain aliases + ACM cert to CloudFront.',
+  });
+  enableCustom.overrideLogicalId('EnableCustomDomains');
+
+  const customDomainsCsv = new cdk.CfnParameter(scope, 'CustomDomainsCsv', {
+    type: 'String',
+    default: '',
+    description: 'Comma-separated custom domains (e.g. app.example.com,www.example.com).',
+  });
+  customDomainsCsv.overrideLogicalId('CustomDomainsCsv');
+
+  const acmCertArnUsEast1 = new cdk.CfnParameter(scope, 'AcmCertificateArnUsEast1', {
+    type: 'String',
+    default: '',
+    description: 'ACM certificate ARN in us-east-1 covering all custom domains.',
+  });
+  acmCertArnUsEast1.overrideLogicalId('AcmCertificateArnUsEast1');
+
+  // ── Origins (tokens from parameters are fine) ─────────────────────────────────
   const backendOrigin = new origins.HttpOrigin(backendAlbDns.valueAsString, {
     protocolPolicy: cf.OriginProtocolPolicy.HTTP_ONLY,
     originSslProtocols: [cf.OriginSslPolicy.TLS_V1_2],
@@ -39,6 +62,7 @@ export function createDistributionWithParams(scope: Construct, id: string, props
     keepaliveTimeout: cdk.Duration.seconds(30),
   });
 
+  // ── L2 Distribution (base) ───────────────────────────────────────────────────
   const dist = new cf.Distribution(scope, id, {
     comment: props.comment,
     defaultBehavior: {
@@ -63,5 +87,43 @@ export function createDistributionWithParams(scope: Construct, id: string, props
     httpVersion: cf.HttpVersion.HTTP2_AND_3,
   });
 
-  return { dist, backendAlbDns, frontendAlbDns };
+  // ── L1 overrides to attach aliases & cert (works on updates & replacements) ──
+  const cfnDist = dist.node.defaultChild as cf.CfnDistribution;
+
+  const useAliasesCond = new cdk.CfnCondition(scope, 'UseAliases', {
+    expression: cdk.Fn.conditionEquals(enableCustom.valueAsString, 'true'),
+  });
+
+  // Aliases: Split CSV into list when enabled, otherwise omit
+  cfnDist.addPropertyOverride(
+    'DistributionConfig.Aliases',
+    cdk.Fn.conditionIf(
+      useAliasesCond.logicalId,
+      cdk.Fn.split(',', customDomainsCsv.valueAsString),
+      cdk.Aws.NO_VALUE
+    )
+  );
+
+  // ViewerCertificate: ACM when enabled; else default CF cert
+  cfnDist.addPropertyOverride(
+    'DistributionConfig.ViewerCertificate',
+    cdk.Fn.conditionIf(
+      useAliasesCond.logicalId,
+      {
+        AcmCertificateArn: acmCertArnUsEast1.valueAsString,
+        SslSupportMethod: 'sni-only',
+        MinimumProtocolVersion: 'TLSv1.2_2021',
+      },
+      { CloudFrontDefaultCertificate: true }
+    )
+  );
+
+  return {
+    dist,
+    backendAlbDns,
+    frontendAlbDns,
+    enableCustom,
+    customDomainsCsv,
+    acmCertArnUsEast1,
+  };
 }
