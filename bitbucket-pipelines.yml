@@ -52,12 +52,7 @@ definitions:
           - echo "🛠 Deploying to stack ${STACK_NAME} (env ${DEPLOY_ENV}) with version ${VERSION}"
 
           - npm ci
-          - |
-            npx cdk deploy --require-approval never \
-              -c stage="${DEPLOY_ENV}" -c version="${VERSION}" \ 
-              --parameters EnableCustomDomains=${ENABLE_CUSTOM_DOMAINS} \
-              --parameters CustomDomainsCsv=${CUSTOM_DOMAINS_CSV} \
-              --parameters AcmCertificateArnUsEast1=${ACM_CERT_ARN}
+          - npx cdk deploy --require-approval never -c stage="${DEPLOY_ENV}" -c version="${VERSION}" --parameters EnableCustomDomains=${ENABLE_CUSTOM_DOMAINS} --parameters CustomDomainsCsv=${CUSTOM_DOMAINS_CSV} --parameters AcmCertificateArnUsEast1=${ACM_CERT_ARN}
           - echo "✅ Infra ${VERSION} deployed successfully"
 
     - step: &destroy
