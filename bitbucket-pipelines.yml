@@ -10,6 +10,8 @@ definitions:
         script:
           - apk add --no-cache bash coreutils
           - set -euo pipefail
+          - '[ -n "${AWS_REGION:-}" ] || { echo "AWS_REGION is required"; exit 1; }'
+          - '[ -n "${PROJECT:-}" ]    || { echo "PROJECT is required"; exit 1; }'
           # branch → deploy env
           - |
             if [ "$BITBUCKET_BRANCH" = "main" ]; then
@@ -40,17 +42,23 @@ definitions:
           - set -euo pipefail
 
           - set +u; set -a; source .ci_env; set +a; set -u
+          - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          - echo "🆔 AWS Account ID - ${AWS_ACCOUNT_ID}"
+          - echo "📂 Infra DEPLOY_ENV - ${DEPLOY_ENV}"
           - VERSION=$(cat VERSION)
-          - DEPLOY_ENV=$(cat .deploy_env)
-
-          - '[ -n "${AWS_REGION:-}" ] || { echo "AWS_REGION is required"; exit 1; }'
-          - '[ -n "${PROJECT:-}" ]    || { echo "PROJECT is required"; exit 1; }'
+          - echo "🚀 Deploying infra version - ${VERSION}"
 
           - STACK_NAME="${PROJECT}-${DEPLOY_ENV}"
           - echo "🛠 Deploying to stack ${STACK_NAME} (env ${DEPLOY_ENV}) with version ${VERSION}"
 
           - npm ci
-          - npx cdk deploy --require-approval never -c stage="${DEPLOY_ENV}" -c version="${VERSION}"
+          - |
+            npx cdk deploy --require-approval never \
+              -c stage="${DEPLOY_ENV}" -c version="${VERSION}" \ 
+              --parameters EnableCustomDomains=${ENABLE_CUSTOM_DOMAINS} \
+              --parameters CustomDomainsCsv=${CUSTOM_DOMAINS_CSV} \
+              --parameters AcmCertificateArnUsEast1=${ACM_CERT_ARN}
+          - echo "✅ Infra ${VERSION} deployed successfully"
 
     - step: &destroy
         image: node:20-alpine
@@ -62,10 +70,6 @@ definitions:
 
           - set +u; set -a; source .ci_env; set +a; set -u
           - VERSION=$(cat VERSION)
-          - DEPLOY_ENV=$(cat .deploy_env)
-
-          - '[ -n "${AWS_REGION:-}" ] || { echo "AWS_REGION is required"; exit 1; }'
-          - '[ -n "${PROJECT:-}" ]    || { echo "PROJECT is required"; exit 1; }'
 
           - STACK_NAME="${PROJECT}-${DEPLOY_ENV}"
           - echo "🔥 Destroying stack ${STACK_NAME} (env ${DEPLOY_ENV})"
