@@ -73,6 +73,15 @@ export class WhiplashInfraStack extends cdk.Stack {
     // SSM parameters needed by app stacks
     const privateSel = vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS });
 
+    // const { atlasVpcEndpointId, atlasVpcEndpointDns } = createAtlasVpcEndpoint(this, name('AtlasEndpoint'), {
+    //   vpc,
+    //   subnets: privateSel,
+    //   ssmParamNameForService: `/${projectName}/${stage}/atlasServiceName`,
+    //   nameFn: name,
+    //   projectName,
+    //   stage,
+    // });
+
     const { dist, backendAlbDns, frontendAlbDns } = createDistributionWithParams(
       this,
       name('CfDist'),
@@ -97,6 +106,8 @@ export class WhiplashInfraStack extends cdk.Stack {
         cloudMapNamespaceArn: ns.namespaceArn,
         cloudFrontDistributionId: dist.distributionId,
         cloudFrontDomainName: dist.distributionDomainName,
+        // atlasVpcEndpointId: atlasVpcEndpointId,
+        // atlasVpcEndpointDns: atlasVpcEndpointDns,
         // atlasServiceName is written by Pulumi; app stacks can read it directly if needed
       },
     });
