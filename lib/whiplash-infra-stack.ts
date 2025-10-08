@@ -6,7 +6,7 @@ import { nameFn } from './common/naming';
 import { createVpc } from './resources/network/vpc';
 import { createEcsCluster } from './resources/compute/cluster';
 import { createRegionalWebAcl, associateWebAcl } from './resources/security/waf';
-// import { createAtlasVpcEndpoint } from './resources/network/atlas-endpoint';
+import { createAtlasVpcEndpoint } from './resources/network/atlas-endpoint';
 import { createEcrRepository } from './resources/storage/ecrRepository';
 import { createSsmStringParams } from './resources/storage/ssmParameter'; 
 import { createS3Bucket } from './resources/storage/s3bucket';
@@ -73,14 +73,14 @@ export class WhiplashInfraStack extends cdk.Stack {
     // SSM parameters needed by app stacks
     const privateSel = vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS });
 
-    // const { atlasVpcEndpointId, atlasVpcEndpointDns } = createAtlasVpcEndpoint(this, name('AtlasEndpoint'), {
-    //   vpc,
-    //   subnets: privateSel,
-    //   ssmParamNameForService: `/${projectName}/${stage}/atlasServiceName`,
-    //   nameFn: name,
-    //   projectName,
-    //   stage,
-    // });
+    const { atlasVpcEndpointId, atlasVpcEndpointDns } = createAtlasVpcEndpoint(this, name('AtlasEndpoint'), {
+      vpc,
+      subnets: privateSel,
+      ssmParamNameForService: `/${projectName}/${stage}/atlasServiceName`,
+      nameFn: name,
+      projectName,
+      stage,
+    });
 
     const { dist, backendAlbDns, frontendAlbDns } = createDistributionWithParams(
       this,
@@ -106,8 +106,8 @@ export class WhiplashInfraStack extends cdk.Stack {
         cloudMapNamespaceArn: ns.namespaceArn,
         cloudFrontDistributionId: dist.distributionId,
         cloudFrontDomainName: dist.distributionDomainName,
-        // atlasVpcEndpointId: atlasVpcEndpointId,
-        // atlasVpcEndpointDns: atlasVpcEndpointDns,
+        atlasVpcEndpointId: atlasVpcEndpointId,
+        atlasVpcEndpointDns: atlasVpcEndpointDns,
         // atlasServiceName is written by Pulumi; app stacks can read it directly if needed
       },
     });
