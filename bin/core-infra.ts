@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
-import { WhiplashInfraStack } from '../lib/whiplash-infra-stack';
+import { CoreInfraStack } from '../lib/core-infra-stack';
+import { CloudFrontWafStack } from '../lib/cloudfront-waf-stack'
 import { getRequiredEnvVar } from '../lib/common';
 
 const app = new cdk.App();
@@ -19,10 +20,23 @@ const stage = app.node.tryGetContext('stage') || 'dev';
 const config = app.node.tryGetContext(stage); // { cpu, memory, backendDesiredCount, frontendDesiredCount }
 if (!config) throw new Error(`No config found for stage: ${stage}`);
 
-new WhiplashInfraStack(app, stage, {
-  stackName: `${projectName}-${stage}`, // Option A: short id, explicit stackName
-  env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+const account = process.env.CDK_DEFAULT_ACCOUNT;
+
+// WAF stack (tiny, us-east-1 only)
+const wafStack = new CloudFrontWafStack(app, `${projectName}-${stage}-waf`, {
+  projectName,
   stage,
+  env: { account, region: 'us-east-1' },
+});
+
+const infraStack = new CoreInfraStack(app, `${projectName}-${stage}`, {
+  crossRegionReferences: true,
+  stackName: `${projectName}-${stage}`, // Option A: short id, explicit stackName
+  env: { account, region: process.env.CDK_DEFAULT_REGION },
+  stage,
+  webAclArn: wafStack.webAclArn,
   projectName,
   config,
 });
+
+infraStack.addDependency(wafStack);

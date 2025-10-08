@@ -13,9 +13,10 @@ import { createS3Bucket } from './resources/storage/s3bucket';
 import { createPrivateNamespace } from './resources/network/cloudMap';
 import { createDistributionWithParams } from './resources/network/cloudfront';
 
-interface WhiplashInfraStackProps extends cdk.StackProps {
+interface CoreInfraStackProps extends cdk.StackProps {
   stage: string;
   projectName: string;
+  webAclArn: string;
   config: {
     cpu: number;
     memory: number;
@@ -24,11 +25,11 @@ interface WhiplashInfraStackProps extends cdk.StackProps {
   };
 }
 
-export class WhiplashInfraStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props: WhiplashInfraStackProps) {
+export class CoreInfraStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props: CoreInfraStackProps) {
     super(scope, id, props);
 
-    const { stage, projectName, config } = props;
+    const { stage, projectName, config, webAclArn } = props;
     const name    = nameFn(projectName, stage);
     const account = cdk.Stack.of(this).account;
     const region  = cdk.Stack.of(this).region;
@@ -76,7 +77,6 @@ export class WhiplashInfraStack extends cdk.Stack {
     createAtlasVpcEndpoint(this, name('AtlasEndpoint'), {
       vpc,
       subnets: privateSel,
-      ssmParamNameForService: `/${projectName}/${stage}/atlasServiceName`,
       nameFn: name,
       projectName,
       stage,
@@ -85,7 +85,10 @@ export class WhiplashInfraStack extends cdk.Stack {
     const { dist, backendAlbDns, frontendAlbDns } = createDistributionWithParams(
       this,
       name('CfDist'),
-      { comment: `${projectName}-${stage} CloudFront (params)` }
+      { 
+        comment: `${projectName}-${stage} CloudFront (params)`,
+        webAclArn: webAclArn,
+      }
     );
 
     const ssmEntries: Record<string, string> = {
@@ -104,11 +107,6 @@ export class WhiplashInfraStack extends cdk.Stack {
       cloudFrontDistributionId: dist.distributionId,
       cloudFrontDomainName: dist.distributionDomainName,
     };
-
-    // if (atlasEndpoint.atlasVpcEndpointId && atlasEndpoint.atlasVpcEndpointDns) {
-    //   ssmEntries.atlasVpcEndpointId = atlasEndpoint.atlasVpcEndpointId;
-    //   ssmEntries.atlasVpcEndpointDns = atlasEndpoint.atlasVpcEndpointDns;
-    // }
 
     createSsmStringParams(this, name('SsmInfraExports'), {
       projectName,

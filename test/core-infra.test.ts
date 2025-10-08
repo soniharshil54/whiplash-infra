@@ -1,13 +1,13 @@
 // import * as cdk from 'aws-cdk-lib';
 // import { Template } from 'aws-cdk-lib/assertions';
-// import * as WhiplashInfra from '../lib/whiplash-infra-stack';
+// import * as CoreInfra from '../lib/core-infra-stack';
 
 // example test. To run these tests, uncomment this file along with the
-// example resource in lib/whiplash-infra-stack.ts
+// example resource in lib/core-infra-stack.ts
 test('SQS Queue Created', () => {
 //   const app = new cdk.App();
 //     // WHEN
-//   const stack = new WhiplashInfra.WhiplashInfraStack(app, 'MyTestStack');
+//   const stack = new CoreInfra.CoreInfraStack(app, 'MyTestStack');
 //     // THEN
 //   const template = Template.fromStack(stack);
 

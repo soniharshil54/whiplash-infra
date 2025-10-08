@@ -2,13 +2,13 @@
 set -euo pipefail
 
 # error if .cdk_env file is missing
-if [ ! -f .cdk_env ]; then
-  echo "Error: .cdk_env file not found!"
+if [ ! -f .cdk.env ]; then
+  echo "Error: .cdk.env file not found!"
   exit 1
 fi
 
 # load env variables from .cdk_env file
-export $(grep -v '^#' .cdk_env | xargs)
+export $(grep -v '^#' .cdk.env | xargs)
 
 echo "Using environment variables:"
 echo "  AWS_REGION: ${AWS_REGION}"
@@ -27,13 +27,15 @@ echo "🚀 Deploying infra version: ${VERSION}"
 # cdk bootstrap --context stage="${DEPLOY_ENV}" aws://${AWS_ACCOUNT_ID}/${AWS_REGION}
 
 cdk context --clear
-cdk deploy \
+
+cdk deploy --all \
   --require-approval never \
   --context stage="${DEPLOY_ENV}" \
   --context version="${VERSION}" \
-  --parameters EnableCustomDomains="${ENABLE_CUSTOM_DOMAINS:-false}" \
-  --parameters CustomDomainsCsv="${CUSTOM_DOMAINS_CSV:-}" \
-  --parameters AcmCertificateArnUsEast1="${ACM_CERT_ARN:-}" \
-  --parameters EnableAtlasEndpoint="${ENABLE_ATLAS_ENDPOINT:-false}"
+  --parameters ${PROJECT}-${DEPLOY_ENV}:EnableCustomDomains="${ENABLE_CUSTOM_DOMAINS:-false}" \
+  --parameters ${PROJECT}-${DEPLOY_ENV}:CustomDomainsCsv="${CUSTOM_DOMAINS_CSV:-}" \
+  --parameters ${PROJECT}-${DEPLOY_ENV}:AcmCertificateArnUsEast1="${ACM_CERT_ARN:-}" \
+  --parameters ${PROJECT}-${DEPLOY_ENV}:EnableAtlasEndpoint="${ENABLE_ATLAS_ENDPOINT:-false}" \
+  --parameters ${PROJECT}-${DEPLOY_ENV}:AtlasServiceName="${ATLAS_SERVICE_NAME:-}"
 
 echo "✅ Infra ${VERSION} deployed successfully"

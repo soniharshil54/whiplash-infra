@@ -52,7 +52,7 @@ definitions:
           - echo "🛠 Deploying to stack ${STACK_NAME} (env ${DEPLOY_ENV}) with version ${VERSION}"
 
           - npm ci
-          - npx cdk deploy --require-approval never -c stage="${DEPLOY_ENV}" -c version="${VERSION}" --parameters EnableCustomDomains=${ENABLE_CUSTOM_DOMAINS:-false} --parameters CustomDomainsCsv=${CUSTOM_DOMAINS_CSV:-} --parameters AcmCertificateArnUsEast1=${ACM_CERT_ARN:-} --parameters EnableAtlasEndpoint=${ENABLE_ATLAS_ENDPOINT:-false}
+          - npx cdk deploy --all --require-approval never -c stage="${DEPLOY_ENV}" -c version="${VERSION}" --parameters ${PROJECT}-${DEPLOY_ENV}:EnableCustomDomains=${ENABLE_CUSTOM_DOMAINS:-false} --parameters ${PROJECT}-${DEPLOY_ENV}:CustomDomainsCsv=${CUSTOM_DOMAINS_CSV:-} --parameters ${PROJECT}-${DEPLOY_ENV}:AcmCertificateArnUsEast1=${ACM_CERT_ARN:-} --parameters ${PROJECT}-${DEPLOY_ENV}:EnableAtlasEndpoint=${ENABLE_ATLAS_ENDPOINT:-false}  --parameters ${PROJECT}-${DEPLOY_ENV}:AtlasServiceName="${ATLAS_SERVICE_NAME:-}"
           - echo "✅ Infra ${VERSION} deployed successfully"
 
     - step: &destroy
@@ -70,7 +70,7 @@ definitions:
           - echo "🔥 Destroying stack ${STACK_NAME} (env ${DEPLOY_ENV})"
 
           - npm ci
-          - npx cdk destroy --force -c stage="${DEPLOY_ENV}" -c version="${VERSION}"
+          - npx cdk destroy --all --force -c stage="${DEPLOY_ENV}" -c version="${VERSION}"
 
 pipelines:
   branches:

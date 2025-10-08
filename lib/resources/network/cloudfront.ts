@@ -5,6 +5,7 @@ import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 
 export interface CfWithParamsProps {
   comment: string;
+  webAclArn?: string;
   // If your ALBs are HTTPS listeners, set protocolPolicy to HTTPS_ONLY below.
 }
 
@@ -65,6 +66,7 @@ export function createDistributionWithParams(scope: Construct, id: string, props
   // ── L2 Distribution (base) ───────────────────────────────────────────────────
   const dist = new cf.Distribution(scope, id, {
     comment: props.comment,
+    webAclId: props.webAclArn,
     defaultBehavior: {
       origin: frontendOrigin,
       viewerProtocolPolicy: cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
