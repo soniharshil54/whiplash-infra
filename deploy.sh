@@ -31,8 +31,9 @@ cdk deploy \
   --require-approval never \
   --context stage="${DEPLOY_ENV}" \
   --context version="${VERSION}" \
-  --parameters EnableCustomDomains=${ENABLE_CUSTOM_DOMAINS} \
-  --parameters CustomDomainsCsv=${CUSTOM_DOMAINS_CSV} \
-  --parameters AcmCertificateArnUsEast1=${ACM_CERT_ARN}
+  --parameters EnableCustomDomains="${ENABLE_CUSTOM_DOMAINS:-false}" \
+  --parameters CustomDomainsCsv="${CUSTOM_DOMAINS_CSV:-}" \
+  --parameters AcmCertificateArnUsEast1="${ACM_CERT_ARN:-}" \
+  --parameters EnableAtlasEndpoint="${ENABLE_ATLAS_ENDPOINT:-false}"
 
 echo "✅ Infra ${VERSION} deployed successfully"

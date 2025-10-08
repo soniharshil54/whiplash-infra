@@ -73,7 +73,7 @@ export class WhiplashInfraStack extends cdk.Stack {
     // SSM parameters needed by app stacks
     const privateSel = vpc.selectSubnets({ subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS });
 
-    const { atlasVpcEndpointId, atlasVpcEndpointDns } = createAtlasVpcEndpoint(this, name('AtlasEndpoint'), {
+    createAtlasVpcEndpoint(this, name('AtlasEndpoint'), {
       vpc,
       subnets: privateSel,
       ssmParamNameForService: `/${projectName}/${stage}/atlasServiceName`,
@@ -88,28 +88,32 @@ export class WhiplashInfraStack extends cdk.Stack {
       { comment: `${projectName}-${stage} CloudFront (params)` }
     );
 
+    const ssmEntries: Record<string, string> = {
+      vpcId: vpc.vpcId,
+      privateSubnetIds: privateSel.subnetIds.join(','),
+      privateSubnetRouteTableIds: privateSel.subnets.map(s => s.routeTable.routeTableId).join(','),
+      clusterName: cluster.clusterName,
+      backendEcrRepoName: backendRepo.repositoryName,
+      frontendEcrRepoName: frontendRepo.repositoryName,
+      accountId: account,
+      region: region,
+      s3BucketName: s3Bucket.bucketName,
+      cloudMapNamespaceId: ns.namespaceId,
+      cloudMapNamespaceName: namespaceFqdn,
+      cloudMapNamespaceArn: ns.namespaceArn,
+      cloudFrontDistributionId: dist.distributionId,
+      cloudFrontDomainName: dist.distributionDomainName,
+    };
+
+    // if (atlasEndpoint.atlasVpcEndpointId && atlasEndpoint.atlasVpcEndpointDns) {
+    //   ssmEntries.atlasVpcEndpointId = atlasEndpoint.atlasVpcEndpointId;
+    //   ssmEntries.atlasVpcEndpointDns = atlasEndpoint.atlasVpcEndpointDns;
+    // }
+
     createSsmStringParams(this, name('SsmInfraExports'), {
       projectName,
       stage,
-      entries: {
-        vpcId: vpc.vpcId,
-        privateSubnetIds: privateSel.subnetIds.join(','),
-        privateSubnetRouteTableIds: privateSel.subnets.map(s => s.routeTable.routeTableId).join(','),
-        clusterName: cluster.clusterName,
-        backendEcrRepoName: backendRepo.repositoryName,
-        frontendEcrRepoName: frontendRepo.repositoryName,
-        accountId: account,
-        region: region,
-        s3BucketName: s3Bucket.bucketName,
-        cloudMapNamespaceId: ns.namespaceId,
-        cloudMapNamespaceName: namespaceFqdn,
-        cloudMapNamespaceArn: ns.namespaceArn,
-        cloudFrontDistributionId: dist.distributionId,
-        cloudFrontDomainName: dist.distributionDomainName,
-        atlasVpcEndpointId: atlasVpcEndpointId,
-        atlasVpcEndpointDns: atlasVpcEndpointDns,
-        // atlasServiceName is written by Pulumi; app stacks can read it directly if needed
-      },
+      entries: ssmEntries,
     });
 
     // ─────────────────────────────────────────────────────────────────────────────

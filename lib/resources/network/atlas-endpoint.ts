@@ -6,16 +6,25 @@ import { Construct } from 'constructs';
 
 interface AtlasEndpointProps {
   vpc: ec2.IVpc;
-  // optionally pass in the list of SGs that should be allowed to talk to Atlas
   allowedClientSgs?: ec2.ISecurityGroup[];
   subnets?: ec2.SubnetSelection;
-  ssmParamNameForService?: string; // `/${project}/${stage}/atlasServiceName`
+  ssmParamNameForService: string;
   nameFn: (s: string) => string;
   projectName: string;
   stage: string;
 }
 
-export function createAtlasVpcEndpoint(scope: Construct, id: string, props: AtlasEndpointProps) {
+interface AtlasEndpointResult {
+  atlasVpcEndpointId?: string;
+  atlasVpcEndpointDns?: string;
+  enableAtlasEndpointParam: cdk.CfnParameter;
+}
+
+export function createAtlasVpcEndpoint(
+  scope: Construct, 
+  id: string, 
+  props: AtlasEndpointProps
+): AtlasEndpointResult {
   const {
     vpc,
     allowedClientSgs = [],
@@ -26,35 +35,81 @@ export function createAtlasVpcEndpoint(scope: Construct, id: string, props: Atla
 
   const name = nameFn;
 
-  // 1) Read Atlas service name that Pulumi wrote
-  const atlasServiceName = ssm.StringParameter.valueFromLookup(scope, ssmParamNameForService as string);
+  // Create CFN parameter to control endpoint creation
+  const enableAtlasEndpointParam = new cdk.CfnParameter(scope, name('EnableAtlasEndpoint'), {
+    type: 'String',
+    default: 'false',
+    allowedValues: ['true', 'false'],
+    description: 'Set to true to create MongoDB Atlas VPC Endpoint',
+  });
+  enableAtlasEndpointParam.overrideLogicalId('EnableAtlasEndpoint');
 
-  // 2) SG on the endpoint ENIs
-  const endpointSg = new ec2.SecurityGroup(scope, name('AtlasEndpointSg'), {
-    vpc,
-    description: 'SG for MongoDB Atlas PrivateLink interface endpoint',
-    allowAllOutbound: true,
+  // Create condition based on parameter
+  const createEndpointCondition = new cdk.CfnCondition(scope, name('CreateAtlasEndpointCondition'), {
+    expression: cdk.Fn.conditionEquals(enableAtlasEndpointParam.valueAsString, 'true'),
   });
 
-  // Allow all VPC traffic -> endpoint on ALL TCP (Atlas can use 1024–65535)
-  endpointSg.addIngressRule(ec2.Peer.ipv4(vpc.vpcCidrBlock), ec2.Port.tcpRange(1024, 65535), 'VPC to Atlas PL');
-  
-  // Also allow specific security groups if provided
-  for (const sg of allowedClientSgs) {
-    endpointSg.addIngressRule(ec2.Peer.securityGroupId(sg.securityGroupId), ec2.Port.tcpRange(1024, 65535), 'App to Atlas PL');
-  }
+  // Use valueForStringParameter instead of valueFromLookup to get CloudFormation reference
+  // This way it resolves at deploy time, not synth time
+  const atlasServiceNameParam = ssm.StringParameter.valueForStringParameter(
+    scope,
+    ssmParamNameForService
+  );
 
-  // 3) Create interface endpoint to Atlas service
-  const vpce = new ec2.InterfaceVpcEndpoint(scope, name('AtlasEndpoint'), {
-    vpc,
-    service: new ec2.InterfaceVpcEndpointService(atlasServiceName, /* port is determined by service */),
-    subnets,
-    securityGroups: [endpointSg],
-    // privateDnsEnabled must remain false for third-party services unless provider says otherwise
+  // Get the subnets
+  const selectedSubnets = vpc.selectSubnets(subnets);
+
+  // Create Security Group using L1 construct with condition
+  const endpointSg = new ec2.CfnSecurityGroup(scope, name('AtlasEndpointSg'), {
+    vpcId: vpc.vpcId,
+    groupDescription: 'SG for MongoDB Atlas PrivateLink interface endpoint',
+    securityGroupIngress: [
+      {
+        ipProtocol: 'tcp',
+        fromPort: 1024,
+        toPort: 65535,
+        cidrIp: vpc.vpcCidrBlock,
+        description: 'VPC to Atlas PL',
+      },
+      ...allowedClientSgs.map(sg => ({
+        ipProtocol: 'tcp',
+        fromPort: 1024,
+        toPort: 65535,
+        sourceSecurityGroupId: sg.securityGroupId,
+        description: 'App to Atlas PL',
+      })),
+    ],
+  });
+  endpointSg.cfnOptions.condition = createEndpointCondition;
+
+  // Create VPC Endpoint using L1 construct with condition
+  const vpce = new ec2.CfnVPCEndpoint(scope, name('AtlasEndpoint'), {
+    vpcId: vpc.vpcId,
+    serviceName: atlasServiceNameParam,
+    vpcEndpointType: 'Interface',
+    subnetIds: selectedSubnets.subnetIds,
+    securityGroupIds: [endpointSg.attrGroupId],
     privateDnsEnabled: false,
   });
+  vpce.cfnOptions.condition = createEndpointCondition;
 
-  const atlasVpcEndpointId  = vpce.vpcEndpointId;
-  const atlasVpcEndpointDns = cdk.Fn.join(',', vpce.vpcEndpointDnsEntries);
-  return { vpce, endpointSg, atlasVpcEndpointId, atlasVpcEndpointDns };
+    // Return conditional values for endpoint ID and DNS
+    const atlasVpcEndpointId = cdk.Fn.conditionIf(
+      createEndpointCondition.logicalId,
+      vpce.ref,
+      cdk.Aws.NO_VALUE
+    ).toString();
+
+    // Use attrDnsEntries directly - it's already a resolvable
+    const atlasVpcEndpointDns = cdk.Fn.conditionIf(
+      createEndpointCondition.logicalId,
+      vpce.attrDnsEntries,
+      cdk.Aws.NO_VALUE
+    ).toString();
+
+  return { 
+    atlasVpcEndpointId,
+    atlasVpcEndpointDns,
+    enableAtlasEndpointParam
+  };
 }
