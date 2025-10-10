@@ -12,6 +12,7 @@ import { createSsmStringParams } from './resources/storage/ssmParameter';
 import { createS3Bucket } from './resources/storage/s3bucket';
 import { createPrivateNamespace } from './resources/network/cloudMap';
 import { createDistributionWithParams } from './resources/network/cloudfront';
+import { getRequiredEnvVar } from './common';
 
 interface CoreInfraStackProps extends cdk.StackProps {
   stage: string;
@@ -36,6 +37,7 @@ export class CoreInfraStack extends cdk.Stack {
 
     cdk.Tags.of(this).add('Project', projectName);
     cdk.Tags.of(this).add('Stage', stage);
+    cdk.Tags.of(this).add('VERSION', getRequiredEnvVar('VERSION'));
 
     // ─────────────────────────────────────────────────────────────────────────────
     // Network & Cluster
