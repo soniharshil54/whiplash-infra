@@ -12,25 +12,12 @@ definitions:
           - set -euo pipefail
           - '[ -n "${AWS_REGION:-}" ] || { echo "AWS_REGION is required"; exit 1; }'
           - '[ -n "${PROJECT:-}" ]    || { echo "PROJECT is required"; exit 1; }'
-          # branch → deploy env
-          - |
-            if [ "$BITBUCKET_BRANCH" = "main" ]; then
-              DEPLOY_ENV="prod"
-            elif [ "$BITBUCKET_BRANCH" = "staging" ]; then
-              DEPLOY_ENV="staging"
-            elif [ "$BITBUCKET_BRANCH" = "dev" ]; then
-              DEPLOY_ENV="dev"
-            else
-              echo "❌ Unsupported branch $BITBUCKET_BRANCH"; exit 1
-            fi
-            echo "$DEPLOY_ENV" > .deploy_env
           - echo "Captured DEPLOY_ENV=$DEPLOY_ENV from branch $BITBUCKET_BRANCH"
+          - export VERSION=$(cat VERSION)
           - >
             env | grep -vE '^(BITBUCKET_|PIPES_|CI=|SHELL=|PWD=|HOME=|PATH=|SHLVL=|_=|HOSTNAME=|DOCKER_HOST=)'
             > .ci_env
-          - echo "DEPLOY_ENV=$(cat .deploy_env)" >> .ci_env
         artifacts:
-          - .deploy_env
           - .ci_env
 
     - step: &deploy
@@ -64,7 +51,6 @@ definitions:
           - set -euo pipefail
 
           - set +u; set -a; source .ci_env; set +a; set -u
-          - VERSION=$(cat VERSION)
 
           - STACK_NAME="${PROJECT}-${DEPLOY_ENV}"
           - echo "🔥 Destroying stack ${STACK_NAME} (env ${DEPLOY_ENV})"
