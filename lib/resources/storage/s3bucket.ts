@@ -1,4 +1,4 @@
-import { Bucket, BucketProps } from 'aws-cdk-lib/aws-s3';
+import { Bucket, BucketProps, BucketEncryption } from 'aws-cdk-lib/aws-s3';
 import { RemovalPolicy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
@@ -11,5 +11,6 @@ export function createS3Bucket(scope: Construct, id: string, props: S3BucketProp
   return new Bucket(scope, id, {
     removalPolicy: RemovalPolicy.DESTROY,
     autoDeleteObjects: true,  
+    encryption: BucketEncryption.KMS_MANAGED,
   });
 }
