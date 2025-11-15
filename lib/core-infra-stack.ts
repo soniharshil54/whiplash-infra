@@ -107,7 +107,7 @@ export class CoreInfraStack extends cdk.Stack {
       frontendEcrRepoName: frontendRepo.repositoryName,
       accountId: account,
       region: region,
-      s3BucketName: s3Bucket.bucketName,
+      s3BucketName: assetsS3Bucket.bucketName,
       assetsS3BucketName: assetsS3Bucket.bucketName,
       cloudMapNamespaceId: ns.namespaceId,
       cloudMapNamespaceName: namespaceFqdn,
