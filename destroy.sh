@@ -25,7 +25,9 @@ export VERSION=$(cat VERSION)
 echo "🚀 Destroying infra version: ${VERSION}"
 
 cdk context --clear
-cdk destroy --all \
+cdk destroy \
+  "${PROJECT}-${DEPLOY_ENV}" \
+  "${PROJECT}-${DEPLOY_ENV}-waf" \
   --require-approval never \
   --context stage="${DEPLOY_ENV}" \
   --context version="${VERSION}"
