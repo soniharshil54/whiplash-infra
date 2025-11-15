@@ -94,6 +94,7 @@ export class CoreInfraStack extends cdk.Stack {
       { 
         comment: `${projectName}-${stage} CloudFront (params)`,
         webAclArn: webAclArn,
+        assetsS3Bucket: assetsS3Bucket,
       }
     );
 

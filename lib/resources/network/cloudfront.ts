@@ -2,10 +2,12 @@ import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
 import * as cf from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 
 export interface CfWithParamsProps {
   comment: string;
   webAclArn?: string;
+  assetsS3Bucket?: s3.IBucket;
 }
 
 export function createDistributionWithParams(scope: Construct, id: string, props: CfWithParamsProps) {
@@ -87,6 +89,12 @@ export function createDistributionWithParams(scope: Construct, id: string, props
     keepaliveTimeout: cdk.Duration.seconds(30),
   });
 
+   // S3 origin for assets
+  let assetsOrigin;
+  if (props.assetsS3Bucket) {
+    assetsOrigin = new origins.S3Origin(props.assetsS3Bucket);
+  }
+
   // ── Distribution (L2) ────────────────────────────────────────────────────────
   const dist = new cf.Distribution(scope, id, {
     comment: props.comment,
@@ -107,6 +115,17 @@ export function createDistributionWithParams(scope: Construct, id: string, props
         allowedMethods: cf.AllowedMethods.ALLOW_ALL,
         cachedMethods: cf.CachedMethods.CACHE_GET_HEAD_OPTIONS,
       },
+      ...(assetsOrigin
+        ? {
+            '/assets/*': {
+              origin: assetsOrigin,
+              viewerProtocolPolicy: cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+              cachePolicy: cf.CachePolicy.CACHING_OPTIMIZED,
+              originRequestPolicy: cf.OriginRequestPolicy.CORS_S3_ORIGIN, // safe for browser S3 assets
+              compress: true,
+            },
+          }
+        : {}),
     },
     priceClass: cf.PriceClass.PRICE_CLASS_100,
     enableIpv6: true,

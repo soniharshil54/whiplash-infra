@@ -12,6 +12,6 @@ export function createS3BucketRetain(scope: Construct, id: string, props: S3Buck
     bucketName: props.bucketName,
     removalPolicy: RemovalPolicy.RETAIN,
     autoDeleteObjects: false,
-    encryption: BucketEncryption.KMS_MANAGED,
+    encryption: BucketEncryption.S3_MANAGED,
   });
 }
