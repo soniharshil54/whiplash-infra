@@ -126,7 +126,7 @@ export function createDistributionWithParams(scope: Construct, id: string, props
       },
       ...(assetsOrigin
         ? {
-            '/assets/*': {
+            '/static/*': {
               origin: assetsOrigin,
               viewerProtocolPolicy: cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
               cachePolicy: cf.CachePolicy.CACHING_OPTIMIZED,
