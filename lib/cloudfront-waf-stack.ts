@@ -42,7 +42,13 @@ export class CloudFrontWafStack extends cdk.Stack {
             managedRuleGroupStatement: {
               vendorName: 'AWS',
               name: 'AWSManagedRulesCommonRuleSet',
-            },
+              ruleActionOverrides: [
+                {
+                  name: 'SizeRestrictions_BODY',
+                  actionToUse: { allow: {} }
+                }
+              ]
+            }
           },
           visibilityConfig: {
             cloudWatchMetricsEnabled: true,
@@ -60,7 +66,5 @@ export class CloudFrontWafStack extends cdk.Stack {
       description: 'CloudFront WAF ARN (us-east-1)',
     });
 
-    cdk.Tags.of(this).add('Project', projectName);
-    cdk.Tags.of(this).add('Stage', stage);
   }
 }
