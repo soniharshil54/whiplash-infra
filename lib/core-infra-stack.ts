@@ -6,7 +6,6 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { nameFn } from './common/naming';
 import { createVpc } from './resources/network/vpc';
 import { createEcsCluster } from './resources/compute/cluster';
-import { createRegionalWebAcl, associateWebAcl } from './resources/security/waf';
 import { createAtlasVpcEndpoint } from './resources/network/atlas-endpoint';
 import { createEcrRepository } from './resources/storage/ecrRepository';
 import { createSsmStringParams } from './resources/storage/ssmParameter'; 
@@ -54,13 +53,6 @@ export class CoreInfraStack extends cdk.Stack {
     });
 
     const cluster = createEcsCluster(this, name('Cluster'), vpc, name('Cluster'));
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // WAF (shared)
-    const wafAcl = createRegionalWebAcl(this, name('WafAcl'), {
-      name: name('web-acl'),
-      metricName: `${projectName}_${stage}_wafMetric`,
-    });
 
     // somewhere in your stack
     const backendRepo = createEcrRepository(this, 'BackendRepo', {
@@ -131,7 +123,6 @@ export class CoreInfraStack extends cdk.Stack {
     new cdk.CfnOutput(this, name('ClusterName'),        { value: cluster.clusterName });
     new cdk.CfnOutput(this, name('BackendEcrRepoUri'),  { value: backendRepo.repositoryUri });
     new cdk.CfnOutput(this, name('FrontendEcrRepoUri'), { value: frontendRepo.repositoryUri });
-    new cdk.CfnOutput(this, name('WafWebAclArn'),       { value: wafAcl.attrArn });
     new cdk.CfnOutput(this, name('S3BucketName'),       { value: s3Bucket.bucketName });
     new cdk.CfnOutput(this, name('AssetsS3BucketName'), { value: assetsS3Bucket.bucketName });
     new cdk.CfnOutput(this, name('CloudMapNamespaceId'),   { value: ns.namespaceId });
