@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 
 import { nameFn } from './common/naming';
 import { createVpc } from './resources/network/vpc';
@@ -18,6 +19,7 @@ interface CoreInfraStackProps extends cdk.StackProps {
   stage: string;
   projectName: string;
   webAclArn: string;
+  s3Bucket: s3.IBucket;
   config: {
     cpu: number;
     memory: number;
@@ -35,8 +37,9 @@ export class CoreInfraStack extends cdk.Stack {
     const account = cdk.Stack.of(this).account;
     const region  = cdk.Stack.of(this).region;
 
-    cdk.Tags.of(this).add('Project', projectName);
-    cdk.Tags.of(this).add('Stage', stage);
+    cdk.Tags.of(this).add('project', projectName);
+    cdk.Tags.of(this).add('stack', stage);
+    cdk.Tags.of(this).add('baseProject', projectName);
     cdk.Tags.of(this).add('VERSION', getRequiredEnvVar('VERSION'));
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -71,6 +74,7 @@ export class CoreInfraStack extends cdk.Stack {
     const s3Bucket = createS3Bucket(this, name('AppBucket'), {
       bucketName: `${projectName}-${stage}-bucket`,
     });
+    const assetsS3Bucket = props.s3Bucket;
 
     // ─────────────────────────────────────────────────────────────────────────────
     // SSM parameters needed by app stacks
@@ -103,6 +107,7 @@ export class CoreInfraStack extends cdk.Stack {
       accountId: account,
       region: region,
       s3BucketName: s3Bucket.bucketName,
+      assetsS3BucketName: assetsS3Bucket.bucketName,
       cloudMapNamespaceId: ns.namespaceId,
       cloudMapNamespaceName: namespaceFqdn,
       cloudMapNamespaceArn: ns.namespaceArn,
@@ -127,6 +132,7 @@ export class CoreInfraStack extends cdk.Stack {
     new cdk.CfnOutput(this, name('FrontendEcrRepoUri'), { value: frontendRepo.repositoryUri });
     new cdk.CfnOutput(this, name('WafWebAclArn'),       { value: wafAcl.attrArn });
     new cdk.CfnOutput(this, name('S3BucketName'),       { value: s3Bucket.bucketName });
+    new cdk.CfnOutput(this, name('AssetsS3BucketName'), { value: assetsS3Bucket.bucketName });
     new cdk.CfnOutput(this, name('CloudMapNamespaceId'),   { value: ns.namespaceId });
     new cdk.CfnOutput(this, name('CloudMapNamespaceName'), { value: namespaceFqdn });
     new cdk.CfnOutput(this, name('CloudFrontDistributionId'), { value: dist.distributionId });

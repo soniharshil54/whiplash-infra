@@ -3,6 +3,7 @@ import * as cdk from 'aws-cdk-lib';
 import { CoreInfraStack } from '../lib/core-infra-stack';
 import { CloudFrontWafStack } from '../lib/cloudfront-waf-stack'
 import { getRequiredEnvVar } from '../lib/common';
+import { StorageStack } from '../lib/storage-stack';
 
 const app = new cdk.App();
 
@@ -29,6 +30,12 @@ const wafStack = new CloudFrontWafStack(app, `${projectName}-${stage}-waf`, {
   env: { account, region: 'us-east-1' },
 });
 
+const storageStack = new StorageStack(app, `${projectName}-${stage}-storage`, {
+  projectName,
+  stage,
+  env: { account, region: process.env.CDK_DEFAULT_REGION },
+});
+
 const infraStack = new CoreInfraStack(app, `${projectName}-${stage}`, {
   crossRegionReferences: true,
   stackName: `${projectName}-${stage}`, // Option A: short id, explicit stackName
@@ -37,6 +44,8 @@ const infraStack = new CoreInfraStack(app, `${projectName}-${stage}`, {
   webAclArn: wafStack.webAclArn,
   projectName,
   config,
+  s3Bucket: storageStack.appBucket,
 });
 
 infraStack.addDependency(wafStack);
+infraStack.addDependency(storageStack);

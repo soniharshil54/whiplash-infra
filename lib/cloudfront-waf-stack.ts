@@ -20,6 +20,10 @@ export class CloudFrontWafStack extends cdk.Stack {
 
     const { projectName, stage } = props;
 
+    cdk.Tags.of(this).add('project', projectName);
+    cdk.Tags.of(this).add('stack', stage);
+    cdk.Tags.of(this).add('baseProject', projectName);
+
     const webAcl = new wafv2.CfnWebACL(this, 'WebACL', {
       name: `${projectName}-${stage}-cf-waf`,
       scope: 'CLOUDFRONT',
