@@ -35,6 +35,7 @@ cdk deploy --all \
   --parameters ${PROJECT}-${DEPLOY_ENV}:EnableCustomDomains="${ENABLE_CUSTOM_DOMAINS:-false}" \
   --parameters ${PROJECT}-${DEPLOY_ENV}:CustomDomainsCsv="${CUSTOM_DOMAINS_CSV:-}" \
   --parameters ${PROJECT}-${DEPLOY_ENV}:AcmCertificateArnUsEast1="${ACM_CERT_ARN:-}" \
+  --parameters ${PROJECT}-${DEPLOY_ENV}:HostedZoneName="${HOSTED_ZONE_NAME:-}" \
   --parameters ${PROJECT}-${DEPLOY_ENV}:EnableAtlasEndpoint="${ENABLE_ATLAS_ENDPOINT:-false}" \
   --parameters ${PROJECT}-${DEPLOY_ENV}:AtlasServiceName="${ATLAS_SERVICE_NAME:-}"
 

@@ -3,6 +3,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as cf from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
 
 export interface CfWithParamsProps {
   comment: string;
@@ -55,7 +57,7 @@ export function createDistributionWithParams(scope: Construct, id: string, props
   const customDomainsCsv = new cdk.CfnParameter(scope, 'CustomDomainsCsv', {
     type: 'String',
     default: '',
-    description: 'Comma-separated custom domains (e.g. app.example.com,www.example.com).',
+    description: 'Comma-separated custom domains (e.g. a.example.com,b.example.com).',
   });
   customDomainsCsv.overrideLogicalId('CustomDomainsCsv');
 
@@ -66,7 +68,14 @@ export function createDistributionWithParams(scope: Construct, id: string, props
   });
   acmCertArnUsEast1.overrideLogicalId('AcmCertificateArnUsEast1');
 
-  // ── Conditions to choose origin protocol per origin ───────────────────────────
+  const hostedZoneName = new cdk.CfnParameter(scope, 'HostedZoneName', {
+    type: 'String',
+    default: '',
+    description: 'Hosted Zone name for CloudFront alias records (e.g. example.com).',
+  });
+  hostedZoneName.overrideLogicalId('HostedZoneName');
+
+  // ── Conditions to choose origin protocol ───────────────────────────────────────
   const isFrontendHttps = new cdk.CfnCondition(scope, 'IsFrontendHttps', {
     expression: cdk.Fn.conditionEquals(frontendAlbProtocol.valueAsString, 'HTTPS'),
   });
@@ -74,7 +83,7 @@ export function createDistributionWithParams(scope: Construct, id: string, props
     expression: cdk.Fn.conditionEquals(backendAlbProtocol.valueAsString, 'HTTPS'),
   });
 
-  // ── Origins (seed with HTTP_ONLY; override via L1) ────────────────────────────
+  // ── Origins ───────────────────────────────────────────────────────────────────
   const backendOrigin = new origins.HttpOrigin(backendAlbDns.valueAsString, {
     protocolPolicy: cf.OriginProtocolPolicy.HTTP_ONLY,
     originSslProtocols: [cf.OriginSslPolicy.TLS_V1_2],
@@ -89,7 +98,7 @@ export function createDistributionWithParams(scope: Construct, id: string, props
     keepaliveTimeout: cdk.Duration.seconds(30),
   });
 
-   // S3 origin for assets
+  // S3 origin for assets
   let assetsOrigin;
   if (props.assetsS3Bucket) {
     assetsOrigin = new origins.S3Origin(props.assetsS3Bucket);
@@ -121,7 +130,7 @@ export function createDistributionWithParams(scope: Construct, id: string, props
               origin: assetsOrigin,
               viewerProtocolPolicy: cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
               cachePolicy: cf.CachePolicy.CACHING_OPTIMIZED,
-              originRequestPolicy: cf.OriginRequestPolicy.CORS_S3_ORIGIN, // safe for browser S3 assets
+              originRequestPolicy: cf.OriginRequestPolicy.CORS_S3_ORIGIN,
               compress: true,
             },
           }
@@ -132,13 +141,10 @@ export function createDistributionWithParams(scope: Construct, id: string, props
     httpVersion: cf.HttpVersion.HTTP2_AND_3,
   });
 
-  // ── L1 overrides (Origins + Aliases/Cert) ─────────────────────────────────────
+  // ── L1 overrides ─────────────────────────────────────────────────────────────
   const cfnDist = dist.node.defaultChild as cf.CfnDistribution;
 
-  // NOTE: Origins order is deterministic:
-  // 0 => frontendOrigin (default)
-  // 1 => backendOrigin  (/api*)
-  // OriginProtocolPolicy must be under CustomOriginConfig
+  // OriginProtocolPolicy overrides
   cfnDist.addPropertyOverride(
     'DistributionConfig.Origins.0.CustomOriginConfig.OriginProtocolPolicy',
     cdk.Fn.conditionIf(isFrontendHttps.logicalId, 'https-only', 'http-only')
@@ -174,6 +180,52 @@ export function createDistributionWithParams(scope: Construct, id: string, props
     )
   );
 
+  // ────────────────────────────────────────────────────────────────
+  // Route53 Alias Records for each custom domain
+  // ────────────────────────────────────────────────────────────────
+
+  const hostedZoneProvided = new cdk.CfnCondition(scope, 'HostedZoneProvided', {
+    expression: cdk.Fn.conditionNot(
+      cdk.Fn.conditionEquals(hostedZoneName.valueAsString, '')
+    ),
+  });
+
+  // Final condition = EnableCustomDomains AND HostedZoneName is provided
+  const createAliasRecords = new cdk.CfnCondition(scope, 'CreateAliasRecords', {
+    expression: cdk.Fn.conditionAnd(
+      useAliasesCond,        // EnableCustomDomains = true
+      hostedZoneProvided     // HostedZoneName not empty
+    ),
+  });
+
+  const domainList = cdk.Fn.split(',', customDomainsCsv.valueAsString);
+
+  const domain0 = cdk.Fn.select(0, domainList);
+  const domain1 = cdk.Fn.select(1, domainList);
+
+  // For each domain, create an A-record alias → CloudFront
+  new route53.CfnRecordSet(scope, `CfAlias0`, {
+    hostedZoneName: cdk.Fn.join('', [hostedZoneName.valueAsString, '.']),
+    name: domain0,
+    type: 'A',
+    aliasTarget: {
+      dnsName: dist.domainName,
+      hostedZoneId: 'Z2FDTNDATAQYW2',
+      evaluateTargetHealth: false,
+    },
+  }).cfnOptions.condition = createAliasRecords;
+
+  new route53.CfnRecordSet(scope, `CfAlias1`, {
+    hostedZoneName: cdk.Fn.join('', [hostedZoneName.valueAsString, '.']),
+    name: domain1,
+    type: 'A',
+    aliasTarget: {
+      dnsName: dist.domainName,
+      hostedZoneId: 'Z2FDTNDATAQYW2',
+      evaluateTargetHealth: false,
+    },
+  }).cfnOptions.condition = createAliasRecords;
+
   return {
     dist,
     backendAlbDns,
@@ -183,5 +235,6 @@ export function createDistributionWithParams(scope: Construct, id: string, props
     acmCertArnUsEast1,
     frontendAlbProtocol,
     backendAlbProtocol,
+    hostedZoneName,
   };
 }
