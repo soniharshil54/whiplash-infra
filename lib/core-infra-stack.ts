@@ -19,6 +19,7 @@ interface CoreInfraStackProps extends cdk.StackProps {
   projectName: string;
   webAclArn: string;
   s3Bucket: s3.IBucket;
+  privateS3Bucket: s3.IBucket;
   config: {
     cpu: number;
     memory: number;
@@ -67,6 +68,7 @@ export class CoreInfraStack extends cdk.Stack {
       bucketName: `${projectName}-${stage}-bucket`,
     });
     const assetsS3Bucket = props.s3Bucket;
+    const privateS3Bucket = props.privateS3Bucket;
 
     // ─────────────────────────────────────────────────────────────────────────────
     // SSM parameters needed by app stacks
@@ -101,6 +103,7 @@ export class CoreInfraStack extends cdk.Stack {
       region: region,
       s3BucketName: assetsS3Bucket.bucketName,
       assetsS3BucketName: assetsS3Bucket.bucketName,
+      privateS3BucketName: privateS3Bucket.bucketName,
       cloudMapNamespaceId: ns.namespaceId,
       cloudMapNamespaceName: namespaceFqdn,
       cloudMapNamespaceArn: ns.namespaceArn,

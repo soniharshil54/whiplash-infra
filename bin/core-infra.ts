@@ -45,6 +45,7 @@ const infraStack = new CoreInfraStack(app, `${projectName}-${stage}`, {
   projectName,
   config,
   s3Bucket: storageStack.appBucket,
+  privateS3Bucket: storageStack.privateBucket,
 });
 
 infraStack.addDependency(wafStack);
